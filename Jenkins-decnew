@@ -9,7 +9,6 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // Pull code from GitHub
                 git branch: 'main', url: 'https://github.com/Bhavani931/myweb.git'
             }
         }
@@ -17,23 +16,22 @@ pipeline {
         stage('Read & Update POM') {
             steps {
                 script {
-                    // Read Maven POM
                     def pom = readMavenPom file: 'pom.xml'
                     echo "GroupId: ${pom.groupId}"
                     echo "ArtifactId: ${pom.artifactId}"
                     echo "Version: ${pom.version}"
 
-                    // New version based on Jenkins build number
                     def newVersion = "${pom.version}.${env.BUILD_NUMBER}"
                     echo "Updating version to ${newVersion}"
 
-                    // Parse XML and update <version>
-                    def pomFile = new XmlSlurper().parse(new File("pom.xml"))
-                    pomFile.version.replaceBody(newVersion)
+                    // Read POM as plain text
+                    def pomText = readFile('pom.xml')
 
-                    // Save updated POM back to file
-                    def writer = new FileWriter("pom.xml")
-                    new groovy.xml.XmlNodePrinter(new PrintWriter(writer)).print(pomFile)
+                    // Replace first occurrence of <version>...</version>
+                    pomText = pomText.replaceFirst("<version>${pom.version}</version>", "<version>${newVersion}</version>")
+
+                    // Write updated POM back
+                    writeFile file: 'pom.xml', text: pomText
                 }
             }
         }
@@ -58,7 +56,6 @@ pipeline {
 
         stage('Deploy to Tomcat') {
             steps {
-                // Use Jenkins SSH credentials to connect to EC2/Tomcat
                 sshagent(['my-ec2-ssh-key']) {
                     sh '''
                     scp -o StrictHostKeyChecking=no target/myweb-*.war ec2-user@3.115.15.25:/opt/tomcat/webapps/
