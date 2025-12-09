@@ -58,11 +58,22 @@ pipeline {
 
         stage('Deploy to Tomcat') {
             steps {
-                // Copy WAR to remote Tomcat server (Public IP: 3.115.15.25)
-                // Make sure Jenkins has SSH access to this server
-                sh '''
-                scp -o StrictHostKeyChecking=no target/myweb-*.war ec2-user@3.115.15.25:/opt/tomcat/webapps/
-                '''
+                // Use Jenkins SSH credentials to connect to EC2/Tomcat
+                sshagent(['my-ec2-ssh-key']) {
+                    sh '''
+                    scp -o StrictHostKeyChecking=no target/myweb-*.war ec2-user@3.115.15.25:/opt/tomcat/webapps/
+                    '''
+                }
+            }
+        }
+
+        stage('Restart Tomcat') {
+            steps {
+                sshagent(['my-ec2-ssh-key']) {
+                    sh '''
+                    ssh -o StrictHostKeyChecking=no ec2-user@3.115.15.25 "sudo systemctl restart tomcat"
+                    '''
+                }
             }
         }
     }
@@ -73,10 +84,6 @@ pipeline {
         }
         failure {
             echo "❌ Pipeline failed. Please check logs."
-        }
-    }
-}
-            }
         }
     }
 }
