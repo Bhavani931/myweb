@@ -1,11 +1,6 @@
 pipeline {
     agent any
 
-    tools {
-        maven 'Maven_3.9.6'   // Adjust to your Maven installation name in Jenkins
-        jdk 'JDK17'           // Adjust to your JDK installation name in Jenkins
-    }
-
     stages {
         stage('Checkout') {
             steps {
@@ -13,24 +8,14 @@ pipeline {
             }
         }
 
-        stage('Read & Update POM') {
+        stage('Update POM Version') {
             steps {
                 script {
                     def pom = readMavenPom file: 'pom.xml'
-                    echo "GroupId: ${pom.groupId}"
-                    echo "ArtifactId: ${pom.artifactId}"
-                    echo "Version: ${pom.version}"
-
                     def newVersion = "${pom.version}.${env.BUILD_NUMBER}"
                     echo "Updating version to ${newVersion}"
-
-                    // Read POM as plain text
                     def pomText = readFile('pom.xml')
-
-                    // Replace first occurrence of <version>...</version>
                     pomText = pomText.replaceFirst("<version>${pom.version}</version>", "<version>${newVersion}</version>")
-
-                    // Write updated POM back
                     writeFile file: 'pom.xml', text: pomText
                 }
             }
@@ -38,19 +23,19 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                sh 'mvn test'
+                sh '/usr/bin/mvn test'
             }
         }
 
         stage('Build WAR') {
             steps {
-                sh 'mvn clean package'
+                sh '/usr/bin/mvn clean package'
             }
         }
 
         stage('Deploy to Nexus') {
             steps {
-                sh 'mvn deploy'
+                sh '/usr/bin/mvn deploy'
             }
         }
 
@@ -68,19 +53,10 @@ pipeline {
             steps {
                 sshagent(['my-ec2-ssh-key']) {
                     sh '''
-                    ssh -o StrictHostKeyChecking=no ec2-user@3.115.15.25 "sudo systemctl restart tomcat"
+                    ssh -o StrictHostKeyChecking=no ec2-user@3.115.15.25 "sudo systemctl restart tomcat9"
                     '''
                 }
             }
-        }
-    }
-
-    post {
-        success {
-            echo "✅ Build, Nexus upload, and Tomcat deployment completed successfully!"
-        }
-        failure {
-            echo "❌ Pipeline failed. Please check logs."
         }
     }
 }
